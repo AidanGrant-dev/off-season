@@ -1,60 +1,82 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { TITLE } from './data/content';
+import { TodayPage } from './pages/TodayPage';
 import { PlanPage } from './pages/PlanPage';
-import { OverviewPage } from './pages/OverviewPage';
+import { LogPage } from './pages/LogPage';
+import { GatesPage } from './pages/GatesPage';
+import { RehabPage } from './pages/RehabPage';
+import { RunningPage } from './pages/RunningPage';
 import { StrengthPage } from './pages/StrengthPage';
-import { AerobicPage } from './pages/AerobicPage';
-import { TestingPage } from './pages/TestingPage';
-import { MonitoringPage } from './pages/MonitoringPage';
+import { OverviewPage } from './pages/OverviewPage';
 
-type Tab = 'plan' | 'overview' | 'strength' | 'aerobic' | 'testing' | 'monitoring';
+export type Page = 'today' | 'plan' | 'log' | 'gates' | 'rehab' | 'running' | 'strength' | 'overview';
 
-const TABS: { id: Tab; label: string }[] = [
-  { id: 'plan', label: 'Week-by-Week' },
-  { id: 'overview', label: 'Overview' },
+const PAGES: { id: Page; label: string }[] = [
+  { id: 'today', label: 'Today' },
+  { id: 'plan', label: 'Week by week' },
+  { id: 'log', label: 'Log' },
+  { id: 'gates', label: 'Gates' },
+  { id: 'rehab', label: 'Rehab' },
+  { id: 'running', label: 'Running' },
   { id: 'strength', label: 'Strength' },
-  { id: 'aerobic', label: 'Aerobic & RSA' },
-  { id: 'testing', label: 'Testing' },
-  { id: 'monitoring', label: 'Monitoring' },
+  { id: 'overview', label: 'Overview' },
 ];
 
+function fromHash(): Page {
+  const h = window.location.hash.slice(1) as Page;
+  return PAGES.some((p) => p.id === h) ? h : 'today';
+}
+
 function App() {
-  const [tab, setTab] = useState<Tab>('plan');
+  const [page, setPage] = useState<Page>(fromHash);
+
+  useEffect(() => {
+    const onHash = () => setPage(fromHash());
+    window.addEventListener('hashchange', onHash);
+    return () => window.removeEventListener('hashchange', onHash);
+  }, []);
+
+  const go = (p: Page) => {
+    window.location.hash = p;
+    window.scrollTo(0, 0);
+  };
 
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-900 dark:bg-[#0b0e14] dark:text-slate-100">
-      <header className="border-b border-black/10 dark:border-white/10">
-        <div className="mx-auto max-w-6xl px-4 py-4 sm:px-6">
-          <h1 className="text-lg font-bold tracking-tight">Off-Season Plan</h1>
-          <p className="text-xs text-black/45 dark:text-white/45">Speed, Fitness & Power Retention — CHB / FB</p>
-          <nav className="mt-4 flex gap-1 overflow-x-auto">
-            {TABS.map((t) => (
-              <button
-                key={t.id}
-                onClick={() => setTab(t.id)}
+    <div className="min-h-screen">
+      <header className="sticky top-0 z-10 border-b border-line bg-bg/90 backdrop-blur">
+        <div className="mx-auto max-w-6xl px-4 pt-3 sm:px-6">
+          <h1 className="text-base font-bold tracking-tight">Off-Season 2026–27</h1>
+          <p className="text-xs text-ink-3">Rehab, speed &amp; the Dundalk 10k</p>
+          <nav className="-mx-4 mt-2 flex gap-1 overflow-x-auto px-4 pb-2 sm:mx-0 sm:px-0" aria-label="Sections">
+            {PAGES.map((p) => (
+              <a
+                key={p.id}
+                href={`#${p.id}`}
+                aria-current={page === p.id ? 'page' : undefined}
                 className={`shrink-0 rounded-lg px-3 py-1.5 text-sm font-medium transition-colors ${
-                  tab === t.id
-                    ? 'bg-indigo-500 text-white'
-                    : 'text-black/60 hover:bg-black/[0.05] dark:text-white/60 dark:hover:bg-white/[0.08]'
+                  page === p.id ? 'bg-accent text-white' : 'text-ink-2 hover:bg-ink/5'
                 }`}
               >
-                {t.label}
-              </button>
+                {p.label}
+              </a>
             ))}
           </nav>
         </div>
       </header>
 
       <main className="mx-auto max-w-6xl px-4 py-6 sm:px-6">
-        {tab === 'plan' && <PlanPage />}
-        {tab === 'overview' && <OverviewPage />}
-        {tab === 'strength' && <StrengthPage />}
-        {tab === 'aerobic' && <AerobicPage />}
-        {tab === 'testing' && <TestingPage />}
-        {tab === 'monitoring' && <MonitoringPage />}
+        {page === 'today' && <TodayPage go={go} />}
+        {page === 'plan' && <PlanPage />}
+        {page === 'log' && <LogPage />}
+        {page === 'gates' && <GatesPage />}
+        {page === 'rehab' && <RehabPage />}
+        {page === 'running' && <RunningPage />}
+        {page === 'strength' && <StrengthPage />}
+        {page === 'overview' && <OverviewPage />}
       </main>
 
-      <footer className="mx-auto max-w-6xl px-4 py-8 text-center text-xs text-black/30 dark:text-white/30 sm:px-6">
-        13-week off-season plan · Oct 13, 2026 – Jan 11, 2027
+      <footer className="mx-auto max-w-6xl px-4 py-8 text-center text-xs text-ink-3 sm:px-6">
+        {TITLE} · 21 Sep 2026 – 31 Jan 2027 · Gates need your physio’s sign-off.
       </footer>
     </div>
   );

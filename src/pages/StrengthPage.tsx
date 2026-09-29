@@ -1,99 +1,151 @@
-import { Card, Bullets } from '../components/Card';
-
-function LiftTable({ rows }: { rows: [string, string, string][] }) {
-  return (
-    <div className="overflow-x-auto">
-      <table className="w-full text-left text-sm">
-        <thead className="text-black/45 dark:text-white/45">
-          <tr>
-            <th className="pb-2 pr-4 font-medium">Lift</th>
-            <th className="pb-2 pr-4 font-medium">In-season now</th>
-            <th className="pb-2 font-medium">Block 1 (base)</th>
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map((r) => (
-            <tr key={r[0]} className="border-t border-black/5 dark:border-white/5">
-              <td className="py-2 pr-4 font-medium">{r[0]}</td>
-              <td className="py-2 pr-4 text-black/60 dark:text-white/60">{r[1]}</td>
-              <td className="py-2 font-semibold text-indigo-400">{r[2]}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
-  );
-}
+import { useState } from 'react';
+import { BASELINES, GYM_PHASES, LOAD_RULES, PRIORITIES, TEST_BLOCK, TEST_GATING } from '../data/content';
+import { formatDay, todayISO } from '../lib/dates';
+import { useTests } from '../lib/hooks';
+import { estimate3RM, formatTime, nextLoad, parseTime } from '../lib/logic';
+import { TEST_KINDS, type TestKind } from '../lib/types';
+import { Card, Field, PageHeader, Pill, Table, inputCls } from '../components/ui';
 
 export function StrengthPage() {
   return (
     <div className="space-y-6">
-      <div>
-        <h2 className="text-2xl font-bold">Your gym, periodised</h2>
-        <p className="mt-2 max-w-3xl text-black/70 dark:text-white/70">
-          Keeps your existing exercises and periodises the rep scheme and intent across blocks, layering in the power/contrast work that
-          converts strength to speed. Bias stays <strong>strength/power, not mass</strong> — hold your bodyweight.
-        </p>
+      <PageHeader title="Strength and power" intro="Phase 2 is the strength block (3×/week) while running is limited. From Phase 3, strength drops to two short, heavy sessions — keeping the load high is what preserves strength, not the volume." />
+      <div className="grid gap-4 lg:grid-cols-[1fr_22rem]">
+        <Card title="How loads progress">
+          <p className="text-sm leading-relaxed text-ink-2">{LOAD_RULES}</p>
+          <p className="mt-3 text-sm leading-relaxed text-ink-2">{PRIORITIES}</p>
+        </Card>
+        <RpeCalc />
       </div>
 
-      <Card title="Block 0 (Wk 1–2) — deload">
-        <p className="text-sm text-black/70 dark:text-white/70">2 × full-body @ ~65–70% of in-season loads. Same lifts, 2–3 sets, lighter (e.g. bench 3×5 @ ~80kg, Bulgarian 3×5 @ 20kg). Hold strength with zero fatigue. Start easing eccentric hamstring work back in (Nordics 2×4).</p>
-      </Card>
+      {GYM_PHASES.map((p) => (
+        <Card key={p.title} title={p.title}>
+          {p.note && <p className="mb-3 text-sm text-ink-2">{p.note}</p>}
+          <dl className="space-y-3 text-sm">
+            {p.sessions.map((s) => (
+              <div key={s.name}>
+                <dt className="font-semibold">{s.name}</dt>
+                <dd className="leading-relaxed text-ink-2">{s.body}</dd>
+              </div>
+            ))}
+          </dl>
+        </Card>
+      ))}
 
-      <Card title="Block 1 (Wk 3–6) — strength base, 3 sessions (Sun lower · Mon upper · Thu full-body)">
-        <p className="mb-3 text-sm text-black/70 dark:text-white/70">Shift main lifts to strength ranges, add load each week; Week 6 backs off ~10%.</p>
-        <LiftTable
-          rows={[
-            ['Barbell bench', '3×5 @ 100kg', '4×6, build ~90 → 100kg'],
-            ['Weighted chin/pull-up', '2×5 @ 16kg', '4×5, add load 16 → 20kg'],
-            ['DB Bulgarian split squat', '3×5 @ 2×30kg', '4×6 heavier, → 2×32.5–35kg'],
-            ['Split-stance DB RDL', '2×8 @ 30kg', '3×6–8 heavier, → 35kg'],
-            ['Nordic hamstring curl', '—', 'Add & build: 2×4 → 3×6'],
-          ]}
-        />
-        <p className="mt-3 text-sm text-black/60 dark:text-white/60">Incline row, Pallof press, rollout, calf iso, Copenhagen plank, hip-flexor march stay as accessories. Skull crusher/DB curl kept low priority (2–3×8–10, health only).</p>
-        <p className="mt-2 text-sm text-black/60 dark:text-white/60"><strong>Nordics are the priority addition</strong> — banking eccentric hamstring strength before Block 2's sprint ramp is the best injury insurance you can buy.</p>
-      </Card>
-
-      <Card title="Block 2 (Wk 7–13) — max strength + power, 2 sessions (Mon lower · Thu upper)">
-        <p className="mb-3 text-sm text-black/70 dark:text-white/70">Main lifts drop to 3–5 reps at heavier loads, each paired with a matched power move (contrast — the heavy set potentiates the jump). Build Wk7–9, deload Wk10, Christmas light Wk11, peak Wk12, maintain Wk13.</p>
-        <div className="grid gap-4 sm:grid-cols-2">
-          <div>
-            <h4 className="mb-2 text-sm font-semibold">Lower (Mon)</h4>
-            <Bullets
-              items={[
-                'Bulgarian split squat 4×4 heavy → superset box jumps 4×3',
-                'Split-stance RDL (or hip thrust) 4×4–5 → superset broad jumps 4×3',
-                'Nordics 3×5–6 (maintain) · Copenhagen · calf · hip-flexor march',
-              ]}
-            />
-          </div>
-          <div>
-            <h4 className="mb-2 text-sm font-semibold">Upper (Thu)</h4>
-            <Bullets
-              items={[
-                'Bench 4–5×3 @ ~105kg+ → superset med-ball chest pass / plyo push-up 4×3',
-                'Weighted pull-up 4×3 heavy',
-                'Row 3×6; Pallof + rollout keep; curls/skull crushers cut to 1–2 sets or drop',
-              ]}
-            />
-          </div>
+      <Card title="Strength test block (first week of January)">
+        <Table head={['Week', 'Front squat (Sun)', 'Trap bar (Sun)', 'Bench (Thu)']} rows={TEST_BLOCK.map((r) => [r.week, r.fs, r.tb, r.bench])} />
+        <div className="mt-4 space-y-2 text-sm text-ink-2">
+          <p><span className="font-medium text-ink">Sun 3 Jan:</span> 15 min warm-up, 3 flying 20 m at ≥95%, CMJ, broad jump, then front squat and trap bar to 3RM. <span className="font-medium text-ink">Thu 7 Jan:</span> bench 3RM, then max bodyweight chin-ups. Same equipment, depth and time of day as last time.</p>
+          <p><span className="font-medium text-ink">Gating.</span> {TEST_GATING}</p>
         </div>
-        <p className="mt-3 text-sm text-black/60 dark:text-white/60">Contrast rest: 4–6s between the heavy set and the jump; full rest between pairs.</p>
       </Card>
 
-      <Card title="Block 3 (from Jan 12) — maintenance, 2 × reduced">
-        <p className="text-sm text-black/70 dark:text-white/70">One heavy lower + one heavy upper, 2–3×3–5, heavy but low volume. Keep Nordics + Copenhagen (injury insurance), drop most accessories — team sessions are the priority now.</p>
-      </Card>
-
-      <Card title="On splitting your lower session">
-        <p className="text-sm leading-relaxed text-black/70 dark:text-white/70">
-          Keep the hamstring/adductor work separate from the main lift. Eccentric hamstring work is best placed <strong>after</strong> a
-          hard/speed day, not before one — in the weekly template that means after Sunday's max velo (i.e. Monday), keeping a buffer before
-          Wednesday's acceleration session. Because eccentric work adapts fast (repeated-bout effect), early mid-week soreness fades within
-          a few weeks — another reason to start Nordics in Block 1.
-        </p>
-      </Card>
+      <TestLog />
     </div>
+  );
+}
+
+function RpeCalc() {
+  const [lift, setLift] = useState<'lower' | 'upper'>('lower');
+  const [w, setW] = useState('');
+  const [reps, setReps] = useState('5');
+  const [rpe, setRpe] = useState('8');
+  const weight = Number(w);
+  const r = Number(rpe);
+  const next = weight && r ? nextLoad(weight, r, lift === 'lower') : null;
+  const est = weight && r && Number(reps) ? estimate3RM(weight, Number(reps), r) : null;
+
+  return (
+    <Card title="Next-session load">
+      <div className="grid grid-cols-2 gap-3">
+        <Field label="Lift" className="col-span-2">
+          <select className={inputCls} value={lift} onChange={(e) => setLift(e.target.value as 'lower' | 'upper')}>
+            <option value="lower">Front squat / trap bar (+5 kg)</option>
+            <option value="upper">Bench / chin-up (+2.5 kg)</option>
+          </select>
+        </Field>
+        <Field label="Top set (kg)"><input className={inputCls} inputMode="decimal" value={w} onChange={(e) => setW(e.target.value)} placeholder="100" /></Field>
+        <Field label="Reps"><input className={inputCls} inputMode="numeric" value={reps} onChange={(e) => setReps(e.target.value)} /></Field>
+        <Field label="RPE" className="col-span-2">
+          <select className={inputCls} value={rpe} onChange={(e) => setRpe(e.target.value)}>
+            {['6', '6.5', '7', '7.5', '8', '8.5', '9', '9.5', '10'].map((x) => <option key={x}>{x}</option>)}
+          </select>
+        </Field>
+      </div>
+      {next && (
+        <div className="mt-3 space-y-1 text-sm">
+          <div>Next top set: <span className="font-semibold">{next.load} kg</span></div>
+          <div className="text-xs text-ink-3">{next.advice}</div>
+          {est && <div className="text-xs text-ink-3">Estimated 3RM ≈ {est} kg (use for the W6/W10 re-estimate)</div>}
+        </div>
+      )}
+    </Card>
+  );
+}
+
+function TestLog() {
+  const [tests, setTests] = useTests();
+  const [kind, setKind] = useState<TestKind>('fs');
+  const [date, setDate] = useState(todayISO());
+  const [value, setValue] = useState('');
+  const [notes, setNotes] = useState('');
+
+  function add() {
+    const v = kind === '5k' ? parseTime(value) : Number(value);
+    if (!v) return;
+    setTests((prev) => [...prev, { id: crypto.randomUUID(), date, kind, value: v, notes: notes || undefined }]);
+    setValue('');
+    setNotes('');
+  }
+
+  const show = (k: TestKind, v: number) => (k === '5k' ? formatTime(v) : `${v} ${TEST_KINDS[k].unit}`);
+  const sorted = [...tests].sort((a, b) => b.date.localeCompare(a.date));
+  const best = (k: TestKind) => {
+    const list = tests.filter((t) => t.kind === k);
+    if (!list.length) return null;
+    return list.reduce((a, b) => (k === '5k' ? (b.value < a.value ? b : a) : b.value > a.value ? b : a));
+  };
+
+  return (
+    <Card title="Test results">
+      <p className="mb-3 text-sm text-ink-2">Log the W8 baseline (CMJ, broad jump — Sun 15 Nov), practice max chin-up sets, and the January tests. The 5k time trial feeds the 10k pace calculator on the Running tab.</p>
+      <Table
+        head={['Lift', 'Last 3RM', 'Recent marker', 'Target', 'Your best']}
+        rows={BASELINES.map((b, i) => {
+          const k = (['fs', 'tb', 'bench', 'chins'] as TestKind[])[i];
+          const bst = best(k);
+          return [b.lift, b.previous ? `${b.previous} kg` : '—', b.recent, b.target, bst ? <Pill key="b" tone="accent">{show(k, bst.value)}</Pill> : '—'];
+        })}
+      />
+      <div className="mt-4 grid gap-3 sm:grid-cols-[1fr_9rem_8rem_1fr_auto] sm:items-end">
+        <Field label="Test">
+          <select className={inputCls} value={kind} onChange={(e) => setKind(e.target.value as TestKind)}>
+            {(Object.keys(TEST_KINDS) as TestKind[]).map((k) => (
+              <option key={k} value={k}>{TEST_KINDS[k].label} ({TEST_KINDS[k].hint})</option>
+            ))}
+          </select>
+        </Field>
+        <Field label="Date"><input type="date" className={inputCls} value={date} onChange={(e) => setDate(e.target.value)} /></Field>
+        <Field label={kind === '5k' ? 'Time (mm:ss)' : `Result (${TEST_KINDS[kind].unit})`}>
+          <input className={inputCls} value={value} onChange={(e) => setValue(e.target.value)} inputMode={kind === '5k' ? 'text' : 'decimal'} />
+        </Field>
+        <Field label="Notes"><input className={inputCls} value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="e.g. 5RM, RPE 9" /></Field>
+        <button onClick={add} className="rounded-lg bg-accent px-4 py-1.5 text-sm font-semibold text-white hover:opacity-90">Add</button>
+      </div>
+      {sorted.length > 0 && (
+        <ul className="mt-4 divide-y divide-line text-sm">
+          {sorted.map((t) => (
+            <li key={t.id} className="flex items-center justify-between gap-3 py-2">
+              <span>
+                <span className="text-ink-3">{formatDay(t.date)} · </span>
+                <span className="font-medium">{TEST_KINDS[t.kind].label}</span> {show(t.kind, t.value)}
+                {t.notes && <span className="text-ink-3"> — {t.notes}</span>}
+              </span>
+              <button className="text-xs text-ink-3 hover:text-rose-500" onClick={() => setTests((prev) => prev.filter((x) => x.id !== t.id))}>Remove</button>
+            </li>
+          ))}
+        </ul>
+      )}
+    </Card>
   );
 }
